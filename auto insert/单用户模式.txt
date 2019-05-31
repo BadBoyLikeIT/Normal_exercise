@@ -1,0 +1,5 @@
+HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL??*(MSSQL10_50.MSSQLSERVER)\MSSQLServer\parameters\SQLArg
+
+将其中-m的值删除之后，重启sql server(mssqlserver)
+HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Microsoft SQL Server\\InstalledInstances
+实例的获取路径

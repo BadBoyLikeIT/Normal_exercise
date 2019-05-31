@@ -1,0 +1,230 @@
+﻿1.查看日志记录（log record）
+use [test]						--[test]数据库名称
+go
+SELECT *
+  FROM [fn_dblog](null,null)
+
+---------------------------------------------------------------------------------------
+
+use [test2]						--[test]数据库名称
+go
+SELECT [Current LSN],                                   --特定的列
+       [Operation], [Transaction Name],[Transaction ID],[Context], 
+       [Begin time],[End Time],[Page ID], [Slot ID],
+       [Checkpoint Begin],[Checkpoint End],[Dirty Pages]
+       
+       
+  FROM [fn_dblog](null,null)
+
+---------------------------------------------------------------------------------------
+
+2.批量插入数据
+declare @i int             --定义变量
+begin tran                 --可以通过开始事物来模拟事物的开始
+set @i = 100               --设置i的初始值
+while(@i < 110)       --循环
+begin                      --开始
+insert into [dbo].[test11] values(@i,GETDATE())    --注意表名[],.表示下一级
+waitfor delay'00:00:00.01'                         --延时为一毫秒                
+set @i = @i + 1                                 --变量自增长
+end                                             --结束
+commit
+--checkpoint                                    --需要经过一次备份之后，checkpoint才不会截断日志
+---------------------------------------------------------------------------------------
+
+--批量更新数据
+BEGIN TRAN
+declare @i int             --定义变量
+set @i = 100                 --设置i的初始值
+while(@i < 110)       --循环
+begin                      --开始
+update [dbo].[test211] set date=GETDATE()    --注意表名[],.表示下一级
+where num = @i
+waitfor delay'00:00:00:01'                         --延时为一毫秒                
+set @i = @i + 1                                 --变量自增长
+end  
+commit
+---------------------------------------------------------------------------------------
+3.查询语句
+select id,convert(varchar(24),time,120)time from dbo.test211 where id=(select MAX(id) from dbo.test211); 
+
+SELECT TOP 10 * FROM [test-215].[dbo].[test215] ORDER BY id DESC;    --查询最后10条语句[test-215]数据库名称,[test215]数据库表名
+
+select date,convert(varchar(24),id,120)time from [test2].[dbo].[test12] where date=(select MAX(date) from [test2].[dbo].[test12]);
+
+select num,convert(varchar(24),date,120)time from [test2].[dbo].[test11] where num=(select MAX(num) from [test2].[dbo].[test11]);
+
+SELECT [id],[date] FROM [test].[dbo].[test11]    --从数据库中查询内容 
+---------------------------------------------------------------------------------------
+
+4.DBCC LOGINFO      --输出数据库日志信息
+---------------------------------------------------------------------------------------
+5.寻找特定操作的日志记录
+SELECT [Current LSN], 
+       Operation, 
+       Context, 
+       [Transaction ID], 
+       [Begin time]
+       FROM sys.fn_dblog
+   (NULL, NULL)
+  WHERE operation IN
+   ('LOP_INSERT_ROWS');
+
+   SELECT [begin time], 
+       [rowlog contents 1], 
+       [Transaction Name], 
+       Operation
+  FROM sys.fn_dblog
+   (NULL, NULL)
+  WHERE operation IN
+   ('LOP_DELETE_ROWS');
+---------------------------------------------------------------------------------------
+
+   6.点击附加可以选择数据库恢复
+   7.点击删除，选择关闭事务连接，可以将.mdf和.ldf文件一同删除
+
+---------------------------------------------------------------------------------------
+8.没有延迟的数据插入
+BEGIN TRAN
+ 
+DECLARE @i INTEGER
+ 
+SET @i = 0
+ 
+WHILE ( @i < 100000 ) 
+    BEGIN
+ 
+        INSERT  INTO Number
+        VALUES  ( @i )
+ 
+        SET @i = @i + 1
+    END
+ 
+CHECKPOINT
+ 
+COMMIT
+---------------------------------------------------------------------------------------
+9.差异备份
+BACKUP DATABASE [test] TO  DISK = N'C:\backup\test15.bak' WITH  DIFFERENTIAL , NOFORMAT, NOINIT,  NAME = N'test-差异 数据库 备份', SKIP, NOREWIND, NOUNLOAD,  STATS = 10
+GO
+---------------------------------------------------------------------------------------
+10.完全备份
+BACKUP DATABASE [test] TO  DISK = N'C:\backup\test1' WITH NOFORMAT, NOINIT,  NAME = N'test-完整 数据库 备份', SKIP, NOREWIND, NOUNLOAD,  STATS = 10
+GO
+---------------------------------------------------------------------------------------
+11.查询数据库名称
+declare @dbname varchar(40)
+SET @dbname = db_name();
+select @dbname
+--------------------------------------------------------------------------------------
+12.快速插入数据
+declare @i int             --定义变量
+begin tran                 --可以通过开始事物来模拟事物的开始
+set @i = 0              --设置i的初始值
+while(@i < 10000)       --循环
+begin                      --开始
+insert into [dbo].[test11] values(@i,GETDATE())    --注意表名[],.表示下一级
+waitfor delay'00:00:00.001'                         --延时为一毫秒                
+set @i = @i + 1                                 --变量自增长
+end                                             --结束
+commit
+checkpoint                                    --需要经过一次备份之后，checkpoint才不会截断日志
+---------------------------------------------------------------------------------------
+13.查询差异备份的预测大小
+
+IF isNULL(object_id('tempdb.dbo.##showFileStats'), 1) <> 1
+	DROP TABLE ##showFileStats
+ 
+CREATE TABLE ##showFileStats (
+	fileID INT,
+	fileGroup INT,
+	totalExtents BIGINT,
+	usedExtents BIGINT,
+	logicalFileName VARCHAR (500),	
+	filePath VARCHAR (1000)
+)
+ 
+IF isNULL(object_id('tempdb.dbo.##DCM'), 1) <> 1
+	DROP TABLE ##DCM
+ 
+CREATE TABLE ##DCM (
+	parentObject VARCHAR(5000),
+	[object] VARCHAR(5000),
+	FIELD VARCHAR (5000),
+	VALUE VARCHAR (5000)
+)
+ 
+INSERT INTO ##showFileStats EXEC('DBCC SHOWFILESTATS with tableresults')
+ 
+DECLARE @currentFileID INT,
+	@totalExtentsOfFile BIGINT,
+	@dbname VARCHAR(100),
+	@SQL VARCHAR(200),
+	@currentDCM BIGINT,
+	@step INT
+ 
+SET @dbname = db_name()
+SET @step = 511232
+ 
+DECLARE myCursor SCROLL CURSOR FOR
+SELECT fileID, totalExtents 
+FROM ##showFileStats
+
+OPEN myCursor
+FETCH NEXT FROM myCursor INTO @currentFileID, @totalExtentsOfFile
+ 
+WHILE @@FETCH_STATUS = 0 
+BEGIN
+ 
+	SET @currentDCM = 6
+	WHILE @currentDCM <= @totalExtentsOfFile*8
+	BEGIN	
+		SET @SQL = 'dbcc page('+ @dbname + ', ' + CAST(@currentFileID AS VARCHAR) + ', ' + CAST(@currentDCM AS VARCHAR) + ', 3) WITH TABLERESULTS'
+		INSERT INTO ##DCM EXEC (@SQL)
+		SET @currentDCM = @currentDCM + @step
+	END
+ 
+	FETCH NEXT FROM myCursor INTO @currentFileID, @totalExtentsOfFile
+END
+CLOSE myCursor
+DEALLOCATE myCursor
+ 
+DELETE FROM ##DCM WHERE VALUE = 'NOT CHANGED' OR parentObject NOT LIKE 'DIFF_MAP%'
+
+SELECT SUM (extentTally) AS totalChangedExtents, SUM(extentTally)*64  AS'diffPrediction(KB)',  SUM(extentTally)/16 AS 'diffPrediction(MB)', SUM(extentTally)/16/1024 AS 'diffPrediction(GB)' 
+FROM
+	(SELECT extentTally =
+	CASE
+		WHEN secondChangedExtent > 0 THEN CAST(secondChangedExtent AS BIGINT) - CAST(firstChangedExtent AS BIGINT) + 1
+		ELSE 1
+	END
+	FROM
+		(SELECT (SUBSTRING(FIELD,(SELECT CHARINDEX(':', FIELD, 0))+1,(CHARINDEX(')', FIELD, 0))-(CHARINDEX(':', FIELD, 0))-1))/8 AS firstChangedExtent,
+		secondChangedExtent = 
+		CASE	
+			WHEN CHARINDEX(':', FIELD, CHARINDEX(':', FIELD, 0)+1) > 0 THEN (SUBSTRING(FIELD,(CHARINDEX(':', FIELD, CHARINDEX(':', FIELD, 0)+1)+1),(CHARINDEX(')', FIELD,CHARINDEX(')', FIELD, 0)+1))-(CHARINDEX(':', FIELD, CHARINDEX(':', FIELD, 0)+1))-1))/8
+			ELSE ''
+		END 
+		FROM ##DCM)parsedFieldColumn)extentTallyColumn
+-----------------------------------------------------------------------------------------------------------------------------------------------
+14.数据库翻倍递增大小
+INSERT INTO test.dbo.test11 SELECT * FROM test.dbo.test11;
+15.创建数据库
+CREATE DATABASE test
+GO
+16.创建数据表
+use test create table test11(id int,date varchar(30))
+17.连接sql server的cmd
+@echo off
+osql -U sa -P leehandsome -d test1 -i .\insert.sql
+echo success insert!
+pause
+18.查询数据库的版本信息
+osql -E -Q "SELECT @@VERSION"
+sqlcmd 2000之后的数据库
+19.查询数据库最新的插入数据
+SELECT TOP 100 [id]
+      ,[date]
+  FROM [test].[dbo].[test11] ORDER BY [date] DESC
+20.创建数据表
+use test create table test11 (id bigint,date varchar(50))
