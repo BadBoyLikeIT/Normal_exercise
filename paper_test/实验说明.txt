@@ -1,0 +1,91 @@
+1.Rsync与Scp备份命令
+	time rsync -vzrtopg --progress /home/sky/ls/lib root@172.17.7.80:/home/ls
+	time scp -r /home/sky/ls/lib root@172.17.7.80:/home/ls
+
+2.目录hash树编译命令
+  md5 需要yum install openssl-devel  在编译的时候需要 -lcrypto 
+	g++ test.cpp -o test.out -lcrypto 
+	./test.out
+
+3.性能监视
+	系统工具->系统监视器
+	top
+
+4.数据部分
+	g++ IniFile_linux.cpp -o data
+	./data
+	block的单位是B，差异度是0.1->10%
+5.传输过程中不需要ssh
+	https://blog.csdn.net/furzoom/article/details/79139570
+
+
+实验的一些细节：
+1.目录遍历的过程
+
+On Linux, the dirent structure is defined as follows: 
+struct dirent {   
+    ino_t          d_ino;       /* inode number */    
+    off_t          d_off;       /* offset to the next dirent */ 文件在目录中的偏移  
+    unsigned short d_reclen;    /* length of this record */    
+    unsigned char  d_type;      /* type of file */    
+    char           d_name[256]; /* filename */
+};
+
+
+opendir() 返回一个dir类型的数值；
+readdir() 返回参数dir目录流的下个目录进入点。最后一个目录进入点为空。
+
+
+
+基本用例：
+#include <dirent.h>
+#include <stdio.h>
+int main(int argc,char *argv[])
+{
+	struct dirent* ent=NULL;
+	DIR *pDir = NULL;
+
+	if((pDir = opendir("/home/test"))== NULL)
+	{
+		printf("open dir failed\n");
+		return 0;
+	}
+	while((ent = readdir(pDir))!=NULL)
+	{
+	printf(" the ent->d_name is %s the ent->d_type is %d\n",ent->d_name,ent->d_type);
+	}
+	closedir(pDir);
+	return 0;
+}
+
+
+2.MD5基本用例
+openssl/md5.h：
+
+[code]#define MD5_DIGEST_LENGTH 16
+
+typedef struct MD5state_st
+        {
+        MD5_LONG A,B,C,D;
+        MD5_LONG Nl,Nh;
+        MD5_LONG data[MD5_LBLOCK];
+        unsigned int num;
+        } MD5_CTX;
+
+int MD5_Init(MD5_CTX *c);
+int MD5_Update(MD5_CTX *c, const void *data, size_t len);
+int MD5_Final(unsigned char *md, MD5_CTX *c);[/code]
+
+3.实现的一个二次出栈的逻辑
+while(!dirstack.empty())
+	{
+		Tree * ptree= dirstack.top();
+		if(ptree->flag)          //为了实现第二次时才出stack
+		{	//计算hash
+			dirstack.pop();
+			cout<<ptree->path<<endl;
+		}else{
+			ptree->flag = true;
+			doPath(ptree);
+		}
+	}

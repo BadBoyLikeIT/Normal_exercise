@@ -1,0 +1,7 @@
+https://bbs.ichunqiu.com/thread-17913-1-1.html
+
+请求时包头：
+wireshark 过滤表达式：http and ip.dst==102.103.99.123 追踪流可以拿到协议的格式
+可以先ping一个域名之后可以得到IP进而过滤
+
+爬虫的流程：请求->解析->过滤->结果处理

@@ -1,0 +1,14 @@
+1.目录遍历的过程
+
+On Linux, the dirent structure is defined as follows: 
+struct dirent {   
+    ino_t          d_ino;       /* inode number */    
+    off_t          d_off;       /* offset to the next dirent */ 文件在目录中的偏移  
+    unsigned short d_reclen;    /* length of this record */    
+    unsigned char  d_type;      /* type of file */    
+    char           d_name[256]; /* filename */
+};
+
+
+opendir() 返回一个dir类型的数值；
+readdir() 返回参数dir目录流的下个目录进入点。最后一个目录进入点为空。

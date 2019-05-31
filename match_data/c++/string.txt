@@ -1,0 +1,19 @@
+1.string str = "abcd";
+str其实是const char *;const char * 向char * 转换只要(char *)即可。
+
+
+2.string 与 char *的相互转换
+	1.string str = "asdf";
+  	  char * p = (char *)str.c_str();  //将const char * 转换成了 char *
+  	  char * p1 = (char *)str.data();
+  	  char p2[20];strcpy(p2,str.c_str());
+	2.char p[20] = "abasdlfj";
+      string str = p;
+
+3.数字向string转换to_string;
+或者是sprintf(char *p,format,value);
+例子：sprintf(time,"%d",filestat.st_mtime);
+
+4.find与substr方法
+auto position = strValue.find("---");
+query += field_db_name + " between '" + strValue.substr(1, position - 1) + "' and '" + strValue.substr(position + 3) + "'";
